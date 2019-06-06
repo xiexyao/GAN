@@ -799,5 +799,5 @@ def main():
                 if sv.should_stop():
                     break
 
-
-main()
+if __name__ == "__main__":
+    main()
