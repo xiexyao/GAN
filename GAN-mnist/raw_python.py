@@ -180,7 +180,7 @@ def train():
 
 	# 定义判别器和生成器的loss函数
 	d_loss = - (tf.log(y_data) + tf.log(1 - y_generated))
-	g_loss = tf.log(1 - y_generated)
+	g_loss = - tf.log(y_generated)
 
 	# 设置学习率为0.0001，用AdamOptimizer进行优化
 	optimizer = tf.train.AdamOptimizer(0.0001)
