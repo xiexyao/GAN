@@ -3,6 +3,8 @@ from PIL import Image  # Image 用于读取影像
 from skimage import io  # io也可用于读取影响，效果比Image读取的更好一些
 
 import tensorflow as tf  # 用于构建神经网络模型
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # 用于绘制生成影像的结果
 import numpy as np  # 读取影像
 import os  # 文件夹操作
@@ -73,31 +75,31 @@ def Generator(z, is_training, reuse):
 	depths = [1024, 512, 256, 128] + [data_shape[2]]
 
 	with tf.variable_scope("Generator", reuse=reuse):
-		# 第一层全连接层
+		# 第一层全连接层 (?,4*4*1024)->(?,4,4,1024)
 		with tf.variable_scope("g_fc1", reuse=reuse):
 			output = tf.layers.dense(z, depths[0] * 4 * 4, trainable=is_training)
-			output = tf.reshape(output, [batch_size, 4, 4, depths[0]])
+			output = tf.reshape(output, [-1, 4, 4, depths[0]])
 			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第二层反卷积层1024
+		# 第二层反卷积层1024 (?,4,4,1024)->(?,8,8,512)
 		with tf.variable_scope("g_dc1", reuse=reuse):
 			output = tf.layers.conv2d_transpose(output, depths[1], [5, 5], strides=(2, 2),
 			                                    padding="SAME", trainable=is_training)
-			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
+			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training)) ### ouput = ┏input / s┓
 
-		# 第三层反卷积层512
+		# 第三层反卷积层512 (?,8,8,512)->(?,16,16,256)
 		with tf.variable_scope("g_dc2", reuse=reuse):
 			output = tf.layers.conv2d_transpose(output, depths[2], [5, 5], strides=(2, 2),
 			                                    padding="SAME", trainable=is_training)
 			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第四层反卷积层256
+		# 第四层反卷积层256 (?,16,16,256)->(?,32,32,128)
 		with tf.variable_scope("g_dc3", reuse=reuse):
 			output = tf.layers.conv2d_transpose(output, depths[3], [5, 5], strides=(2, 2),
 			                                    padding="SAME", trainable=is_training)
 			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第五层反卷积层128
+		# 第五层反卷积层128 (?,32,32,128)->(?,64,64,3)
 		with tf.variable_scope("g_dc4", reuse=reuse):
 			output = tf.layers.conv2d_transpose(output, depths[4], [5, 5], strides=(2, 2),
 			                                    padding="SAME", trainable=is_training)
@@ -119,25 +121,25 @@ def Discriminator(x, is_training, reuse):
 	depths = [data_shape[2]] + [64, 128, 256, 512]
 
 	with tf.variable_scope("Discriminator", reuse=reuse):
-		# 第一层卷积层，注意用的是leaky_relu函数
+		# 第一层卷积层，注意用的是leaky_relu函数 (?,64,64,3)->(?,32,32,64)
 		with tf.variable_scope("d_cv1", reuse=reuse):
 			output = tf.layers.conv2d(x, depths[1], [5, 5], strides=(2, 2),
 			                          padding="SAME", trainable=is_training)
 			output = tf.nn.leaky_relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第二层卷积层，注意用的是leaky_relu函数
+		# 第二层卷积层，注意用的是leaky_relu函数 (?,32,32,64)->(?,16,16,128)
 		with tf.variable_scope("d_cv2", reuse=reuse):
 			output = tf.layers.conv2d(output, depths[2], [5, 5], strides=(2, 2),
 			                          padding="SAME", trainable=is_training)
 			output = tf.nn.leaky_relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第三层卷积层，注意用的是leaky_relu函数
+		# 第三层卷积层，注意用的是leaky_relu函数 (?,16,16,128)->(?,8,8,256)
 		with tf.variable_scope("d_cv3", reuse=reuse):
 			output = tf.layers.conv2d(output, depths[3], [5, 5], strides=(2, 2),
 			                          padding="SAME", trainable=is_training)
 			output = tf.nn.leaky_relu(tf.layers.batch_normalization(output, training=is_training))
 
-		# 第四层卷积层，注意用的是leaky_relu函数
+		# 第四层卷积层，注意用的是leaky_relu函数 (?,8,8,256)->(?,4,4,512)
 		with tf.variable_scope("d_cv4", reuse=reuse):
 			output = tf.layers.conv2d(output, depths[4], [5, 5], strides=(2, 2),
 			                          padding="SAME", trainable=is_training)
@@ -145,7 +147,7 @@ def Discriminator(x, is_training, reuse):
 
 		# 第五层全链接层
 		with tf.variable_scope("d_fc1", reuse=reuse):
-			output = tf.layers.flatten(output)
+			output = tf.layers.flatten(output) #(?,4,4,512)->(?,4*4*512）
 			disc_img = tf.layers.dense(output, 1, trainable=is_training)
 
 	return disc_img
@@ -158,6 +160,9 @@ def plot_and_save(order, images):
 	:param images:
 	:return:
 	'''
+	file_path = "./output"
+	if not os.path.exists(file_path):
+		os.makedirs(file_path)
 
 	# 将一个batch_size的所有图像进行保存
 	batch_size = len(images)
@@ -188,7 +193,7 @@ def plot_and_save(order, images):
 		file_name = "face_gen" + str(order)
 
 	# 保存绘制的结果
-	plt.savefig(file_name)
+	plt.savefig(os.path.join(file_path,file_name))
 	print(os.getcwd())
 	print("Image saved in file: ", file_name)
 	plt.close()
